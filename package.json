@@ -1,0 +1,15 @@
+{
+  "name": "kmb-eta",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": {},
+  "author": "Jimmy Sinn <jimmyltsinn@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-eslint": "^3.0.1"
+  },
+  "dependencies": {
+    "isomorphic-fetch": "^2.2.1"
+  }
+}
