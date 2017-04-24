@@ -1,4 +1,5 @@
 const fetch = require('isomorphic-fetch');
+const proj4 = require('proj4');
 
 const domain = 'http://search.kmb.hk/';
 const lang = 0;
@@ -52,6 +53,9 @@ const etaKeys = [
   'msg'             // Message
 ];
 
+const kmbProj = '+proj=tmerc +lat_0=22.31213333333334 +lon_0=114.1785555555556 +k=1 +x_0=836694.05 +y_0=819069.8 +ellps=intl +units=m +no_defs';
+const googleProj = 'EPSG:3857';
+
 const scheduleDayType = ["W", "MF", "MS", "S", "H", "D", "X"];
 
 function filterObjectByKeys(obj, keys) {
@@ -77,7 +81,11 @@ function getStops(route, bound) {
     .then(res => res.json())
     .then(obj => obj.data)
     .then(obj => obj.routeStops.length > 0 ? obj.routeStops : undefined)
-    .then(obj => obj.map(stop => filterObjectByKeys(stop, stopKeys)))
+    .then(obj => obj.map(stop => {
+      let ret = filterObjectByKeys(stop, stopKeys);
+      ret.position = proj4(kmbProj, googleProj, {x: stop.X, y: stop.Y});
+      return ret;
+    }))
     .catch(console.error);
 }
 

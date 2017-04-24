@@ -10,6 +10,7 @@
     "gulp-eslint": "^3.0.1"
   },
   "dependencies": {
-    "isomorphic-fetch": "^2.2.1"
+    "isomorphic-fetch": "^2.2.1",
+    "proj4": "^2.4.3"
   }
 }
