@@ -56,3 +56,4 @@ jspm_packages
 *.db
 tmp/
 *.db-journal
+dist-web
