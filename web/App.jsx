@@ -1,7 +1,9 @@
 import React from 'react';
 
+import Map from './components/Map';
+
 const App = () => (
-  <div>GG</div>
+  <Map />
 );
 
 export default App;
