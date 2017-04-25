@@ -16,7 +16,7 @@ const defaultSetting = {
 const AComponent = ({ text }) => (
   <div style={{
     position: 'relative', color: 'black', background: 'red',
-    height: 50, width: 50, top: -25, left: -25,
+    height: 10, width: 10, top: -5, left: -5,
   }}>
     {text}
   </div>
@@ -29,14 +29,12 @@ let GoogleMapComponent = props => (
     }}
     defaultCenter = {defaultSetting.center}
     defaultZoom = {defaultSetting.zoom}>
-    {data.map(stop => {
-      return (<AComponent
-        key = {stop.seq}
-        lat = {stop.location.lat}
-        lng = {stop.location.lng}
-        text = {stop.nameTc}
-        />);
-      }
+    {data.map(stop => (<AComponent
+      key = {stop.seq}
+      lat = {stop.position.lat}
+      lng = {stop.position.lng}
+      text = {stop.nameTc}
+      />)
     )}
 
   </GoogleMapReact>

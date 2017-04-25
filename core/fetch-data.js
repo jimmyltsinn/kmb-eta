@@ -1,20 +1,20 @@
 const fetch = require('isomorphic-fetch');
 const proj4 = require('proj4');
 
+const util = require('./util');
+
 const domain = 'http://search.kmb.hk/';
 const lang = 0;
-
-
-
-const kmbProj = 'PROJCS["Hong_Kong_1980_Grid",GEOGCS["GCS_Hong_Kong_1980",DATUM["D_Hong_Kong_1980",SPHEROID["International_1924",6378388.0,297.0]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",836694.05],PARAMETER["False_Northing",819069.8],PARAMETER["Central_Meridian",114.1785555555556],PARAMETER["Scale_Factor",1.0],PARAMETER["Latitude_Of_Origin",22.31213333333334],UNIT["Meter",1.0],AUTHORITY["EPSG",2326]]';
-const googleProj = '+proj=longlat';
 
 const scheduleDayType = ["W", "MF", "MS", "S", "H", "D", "X"];
 
 function xyToLatLng(loc) {
+  const kmbProj = 'PROJCS["Hong_Kong_1980_Grid",GEOGCS["GCS_Hong_Kong_1980",DATUM["D_Hong_Kong_1980",SPHEROID["International_1924",6378388.0,297.0]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",836694.05],PARAMETER["False_Northing",819069.8],PARAMETER["Central_Meridian",114.1785555555556],PARAMETER["Scale_Factor",1.0],PARAMETER["Latitude_Of_Origin",22.31213333333334],UNIT["Meter",1.0],AUTHORITY["EPSG",2326]]';
+  const googleProj = '+proj=longlat';
+
   let res =  proj4(kmbProj, googleProj, {
-    x: loc.X,
-    y: loc.Y
+    x: loc.x,
+    y: loc.y
   });
   return {
     lat: res.y - 0.001532178545,
@@ -42,8 +42,6 @@ function parseInfo(info) {
     'ServiceTypeENG',
     // 'ServiceTypeSC',
   ];
-
-  console.log(info);
 
   let ret = {
     origin: {
@@ -97,7 +95,10 @@ function parseStop(stop) {
     },
     fare: parseFloat(stop.AirFare),
     bsiCode: stop.BSICode,
-    position: xyToLatLng(stop),
+    position: xyToLatLng({
+      x: stop.X,
+      y: stop.Y
+    }),
   };
 }
 
@@ -113,7 +114,7 @@ function parseETA(eta) {
     'msg'             // Message
   ];
 
-  let time = eta.t.split('　');
+  const time = eta.t.split('　');
 
   let ret = {
     wheelchair: eta.w && eta.w === 'Y',
@@ -137,13 +138,48 @@ function parseETA(eta) {
   return ret;
 }
 
-function filterObjectByKeys(obj, keys) {
-  return Object.keys(obj)
-    .filter(key => keys.includes(key))
-    .reduce((ret, k) => {
-      ret[k] = obj[k];
-      return ret;
-    }, {});
+function parseAnnouncement(announcement) {
+  let ret = {
+    title: {
+      eng: announcement.kpi_title,
+      chi: announcement.kpi_title_chi
+    },
+    url: 'KMBWebSite/AnnouncementPicture.ashx?url=' + announcement.kpi_noticeimageurl,
+    ref: announcement.kpi_referenceno
+  };
+
+  return ret;
+}
+
+function parseStopOfAll(stop) {
+  return {
+    name: {
+      eng: stop.EName,
+      chi: stop.CName
+    },
+    location: {
+      eng: [stop.ELocation1, stop.ELocation2, stop.ELocation3].join(' ').trim(),
+      chi: [stop.CLocation1, stop.CLocation2, stop.CLocation3].join('').trim()
+    },
+    position: xyToLatLng({
+      x: stop.x,
+      y: stop.y
+    }),
+    bsiCode: stop.BSICode
+  };
+}
+
+function getAnnouncementDetail(announcement) {
+  return fetch(domain + announcement.url)
+    .then(res => res.text())
+    .then(detail => util.getBody(detail))
+    .then(detail => util.removeTags(detail))
+    .then(detail => {
+      announcement.detail = util.replaceNewLineCharacter(detail);
+      delete announcement.url;
+      return announcement;
+    })
+    .catch(() => announcement);
 }
 
 function getInfo(route, bound) {
@@ -192,9 +228,26 @@ function getSchedule(route, bound) {
     .then(obj => obj.data['01']);
 }
 
+function getAnnounce(route, bound) {
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getannounce&route=${route}&bound=${bound}`)
+    .then(res => res.json())
+    .then(json => json.data)
+    .then(data => data.map(parseAnnouncement))
+    .then(announcements => Promise.all(announcements.map(getAnnouncementDetail)));
+}
+
+function getAllStops() {
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getallstops`)
+    .then(res => res.json())
+    .then(json => json.data.stops)
+    .then(data => data.map(parseStopOfAll));
+}
+
 module.exports = {
   getInfo,
   getStops,
   getETA,
-  getSchedule
+  getSchedule,
+  getAnnounce,
+  getAllStops
 };
