@@ -1,10 +1,11 @@
-let gulp = require('gulp');
-let gutil = require("gulp-util");
+const gulp = require('gulp');
+const gutil = require("gulp-util");
 
-// let debug = require('gulp-debug');
-let eslint = require('gulp-eslint');
-let webpack = require("webpack");
-let WebpackDevServer = require("webpack-dev-server");
+// const debug = require('gulp-debug');
+const nodemon = require('gulp-nodemon');
+const eslint = require('gulp-eslint');
+const webpack = require("webpack");
+const WebpackDevServer = require("webpack-dev-server");
 
 let webpackConfig = () => {
   let ret = require('./webpack.config.js');
@@ -38,6 +39,15 @@ gulp.task('lint', () => {
     .pipe(eslint.failAfterError());
 });
 
-gulp.task('pre-commit', ['lint']);
+gulp.task('telegram-bot', () => {
+  nodemon({
+    script: 'bot/telegram.js',
+    ext: 'js',
+    ignore: ['node_modules', 'web'], 
+    env: { 'NODE_ENV': 'development' }
+  });
+});
+
+gulp.task('pre-commit', []);
 
 gulp.task('default', ['webpack-dev-server']);
