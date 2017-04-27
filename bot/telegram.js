@@ -1,11 +1,15 @@
 const TelegramBot = require('node-telegram-bot-api');
 
 const config = require('../config').Telegram;
+const Datasource = require('../core/fetch-data');
+const util = require('../core/util');
 
 const bot = new TelegramBot(config.token, {polling: true});
 
 const record = {};
 const state = {};
+
+const lang = 'chi';
 
 let recordHistory = (handleName, msg, res = '') => {
   let ret = {
@@ -36,10 +40,10 @@ let setState = (id, inState = initState(id)) => state[id] = inState;
 
 let reset = (msg, match) => {
   let id = msg.chat.id;
-  if (match) id = match[1];
+  if (match[1] !== undefined) id = match[1];
   if (id != msg.chat.id && msg.chat.id != config.adminChatId)
     id = msg.chat.id;
-  setState(id);
+  setState(id, initState(id));
   return 'The state has been reset';
 };
 
@@ -56,8 +60,112 @@ let start = msg => {
   return 'Welcome. You can now start using this bot. ';
 };
 
+let askForRoute = state => {
+  return bot.sendMessage(state.chatid, 'Please type the route. ');
+};
+
+let parseRoute = (state, input) => {
+  return input.toUpperCase();
+};
+
+let askForBound = state => {
+  return Datasource.getBoundsInfo(state.route)
+    .then(bounds => {
+      state.boundOptions = bounds.map(bound => ({
+        id: bound.boundId,
+        text: `${bound.origin[lang]}➡️${bound.destination[lang]}`,
+      }));
+      return bot.sendMessage(state.chatid, 'Please select the direction. ', {
+        reply_markup: JSON.stringify({
+          keyboard: [
+            state.boundOptions
+          ],
+          // one_time_keyboard: true,
+          resize_keyboard: true
+        })
+      });
+    });
+};
+
+let parseBound = (state, input) => {
+  if (!isNaN(parseInt(input))) return parseInt(input);
+  for (let i = 0; i < state.boundOptions.length; ++i)
+    if (input === state.boundOptions[i].text)
+      return state.boundOptions[i].id;
+  return undefined;
+};
+
+let askForStop = state => {
+  return Datasource.getStops(state.route, state.bound)
+    .then(stops => {
+      state.stopOptions = stops.map(stop => ({
+        id: stop.seq,
+        text: stop.name[lang]
+      }));
+      return bot.sendMessage(state.chatid, 'Please select the stop', {
+        reply_markup: JSON.stringify({
+          keyboard: [
+            [
+              {
+                text: 'Find stop by my location',
+                request_location: true
+              }
+            ],
+            ...util.arrayToGrid(state.stopOptions, 3),
+          ],
+          one_time_keyboard: true,
+          resize_keyboard: true,
+          force_reply: false
+        })
+      });
+    });
+};
+
+let parseStop = (state, input) => {
+  if (!isNaN(parseInt(input))) return parseInt(input);
+  for (let i = 0; i < state.stopOptions.length; ++i)
+    if (input === state.stopOptions[i].text)
+      return state.stopOptions[i].id;
+  return undefined;
+};
+
+let replyETA = state => {
+  return Datasource.getETA(state.route, state.bound, state.stop)
+    .then(data => {
+      let msg = `${state.route} `;
+      msg += state.boundOptions.filter(bound => bound.id == state.bound)[0].text + '\n';
+
+      msg += 'Stop: ';
+      msg += state.stopOptions.filter(stop => stop.id == state.stop)[0].text + '\n';
+
+      if (data) {
+        data.response.map(eta => {
+          msg += `${eta.time}`;
+          if (eta.scheduled) msg += '🕙';
+          if (eta.wheelchair) msg += '♿️';
+          msg += '\n';
+        });
+      } else {
+        msg += 'There is no bus in coming hour. ';
+      }
+      return msg;
+    })
+    .then(msg => bot.sendMessage(state.chatid, msg));
+};
+
 let handleState = state => {
-  return bot.sendMessage(state.chatid, JSON.stringify(state));
+  switch (state.progress) {
+    // case 0:
+    //   break;
+    case 1:
+      return askForBound(state);
+    case 2:
+      return askForStop(state);
+    case 3:
+      return replyETA(state);
+    default:
+      return bot.sendMessage(state.chatid, JSON.stringify(state));
+  }
 };
 
 let defaultHandler = msg => {
@@ -74,13 +182,13 @@ let defaultHandler = msg => {
       for (let i = 0; i < tokens.length; ++i) {
         switch (state.progress) {
           case 0:
-            state.route = tokens[i].toUpperCase();
+            state.route = parseRoute(state, tokens[i]);
             break;
           case 1:
-            state.bound = parseInt(tokens[i]);
+            state.bound = parseBound(state, tokens[i]);
             break;
           case 2:
-            state.stop = parseInt(tokens[i]);
+            state.stop = parseStop(state, tokens[i]);
             break;
         }
         state.progress++;
@@ -89,7 +197,7 @@ let defaultHandler = msg => {
       return state;
     })
     .then(state => handleState(state))
-    .catch(res => bot.sendMessage(chatid, 'Unaccepted format. '));
+    // .catch(err => bot.sendMessage(chatid, 'Unaccepted format. ' + JSON.stringify(err)));
 };
 
 const handleObjects = [
@@ -119,6 +227,11 @@ const handleObjects = [
     handler: defaultHandler
   }
 ];
+
+bot.on('location', msg => {
+  let location = msg.location;
+  console.log(location);
+});
 
 bot.on('message', msg => {
   let handle = handleObjects[handleObjects.length - 1];

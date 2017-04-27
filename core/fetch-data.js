@@ -3,7 +3,7 @@ const proj4 = require('proj4');
 
 const util = require('./util');
 
-const domain = 'http://search.kmb.hk/';
+const domain = require('../config').General.datasourceDomain;
 const lang = 0;
 
 const scheduleDayType = ["W", "MF", "MS", "S", "H", "D", "X"];
@@ -45,18 +45,18 @@ function parseInfo(info) {
 
   let ret = {
     origin: {
-      eng: info.OriEName,
-      chi: info.OriEName
+      eng: util.toCamelCase(info.OriEName),
+      chi: info.OriCName
     },
     destination: {
-      eng: info.DestEName,
+      eng: util.toCamelCase(info.DestEName),
       chi: info.DestCName
     }
   };
 
   if (info.ServiceTypeENG && info.ServiceTypeENG !== '') {
     ret.serviceType = {
-      eng: info.ServiceTypeENG,
+      eng: util.toCamelCase(info.ServiceTypeENG),
       chi: info.ServiceTypeTC
     };
   }
@@ -86,11 +86,11 @@ function parseStop(stop) {
   return {
     seq: parseInt(stop.Seq),
     name: {
-      eng: stop.EName,
+      eng: util.toCamelCase(stop.EName),
       chi: stop.CName
     },
     location: {
-      eng: stop.ELocation,
+      eng: util.toCamelCase(stop.ELocation),
       chi: stop.CLocation
     },
     fare: parseFloat(stop.AirFare),
@@ -187,7 +187,11 @@ function getInfo(route, bound) {
   return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getstops&route=${route}&bound=${bound}`)
     .then(res => res.json())
     .then(obj => obj.data.basicInfo)
-    .then(parseInfo);
+    .then(parseInfo)
+    .then(obj => {
+      obj.boundId = bound;
+      return obj;
+    });
 }
 
 function getStops(route, bound) {
@@ -204,8 +208,7 @@ function getETA(route, bound, seq) {
   let bsiCode = 'dummy';
   let serviceType = 1;
   route = route.toUpperCase();
-
-  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx/?action=geteta&lang=${lang}&route=${route}&bound=${bound}&seq=${seq}&servicetype=${serviceType}&bsiCode=${bsiCode}`)
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx/?action=get_eta&lang=${lang}&route=${route}&bound=${bound}&seq=${seq}&servicetype=${serviceType}&bsiCode=${bsiCode}`)
     .then(res => res.json())
     .then(obj => obj.data)
     .then(obj => {
@@ -243,11 +246,25 @@ function getAllStops() {
     .then(data => data.map(parseStopOfAll));
 }
 
+function getBounds(route) {
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getroutebound&route=${route}`)
+    .then(res => res.json())
+    .then(json => json.data);
+}
+
+function getBoundsInfo(route) {
+  return getBounds(route)
+    .then(items => items.map(bound => bound.BOUND).filter((item, pos, self) => self.indexOf(item) == pos))
+    .then(bounds => Promise.all(bounds.map(bound => getInfo(route, bound))));
+}
+
 module.exports = {
   getInfo,
   getStops,
   getETA,
   getSchedule,
   getAnnounce,
-  getAllStops
+  getAllStops,
+  getBounds,
+  getBoundsInfo
 };
