@@ -17,8 +17,8 @@ function xyToLatLng(loc) {
     y: loc.y
   });
   return {
-    lat: res.y - 0.001532178545,
-    lng: res.x + 0.002514088216
+    latitude:  res.y - 0.001532178545,
+    longitude: res.x + 0.002514088216
   };
 }
 
@@ -89,13 +89,13 @@ function parseStop(stop) {
       eng: util.toCamelCase(stop.EName),
       chi: stop.CName
     },
-    location: {
+    address: {
       eng: util.toCamelCase(stop.ELocation),
       chi: stop.CLocation
     },
     fare: parseFloat(stop.AirFare),
     bsiCode: stop.BSICode,
-    position: xyToLatLng({
+    location: xyToLatLng({
       x: stop.X,
       y: stop.Y
     }),

@@ -31,8 +31,8 @@ let GoogleMapComponent = props => (
     defaultZoom = {defaultSetting.zoom}>
     {data.map(stop => (<AComponent
       key = {stop.seq}
-      lat = {stop.position.lat}
-      lng = {stop.position.lng}
+      lat = {stop.location.latitude}
+      lng = {stop.location.longitude}
       text = {stop.nameTc}
       />)
     )}

@@ -1,4 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
+const geolib = require('geolib');
 
 const config = require('../config').Telegram;
 const Datasource = require('../core/fetch-data');
@@ -100,7 +101,8 @@ let askForStop = state => {
     .then(stops => {
       state.stopOptions = stops.map(stop => ({
         id: stop.seq,
-        text: stop.name[lang]
+        text: stop.name[lang],
+        location: stop.location
       }));
       return bot.sendMessage(state.chatid, 'Please select the stop', {
         reply_markup: JSON.stringify({
@@ -136,11 +138,16 @@ let replyETA = state => {
       msg += state.boundOptions.filter(bound => bound.id == state.bound)[0].text + '\n';
 
       msg += 'Stop: ';
-      msg += state.stopOptions.filter(stop => stop.id == state.stop)[0].text + '\n';
+      msg += state.stopOptions.filter(stop => stop.id == state.stop)[0].text;
+
+      if (state.dist) {
+        msg += ` (${state.dist} m)`;
+      }
+      msg += '\n';
 
       if (data) {
         data.response.map(eta => {
-          msg += `${eta.time}`;
+          msg += `${eta.time} `;
           if (eta.scheduled) msg += '🕙';
           if (eta.wheelchair) msg += '♿️';
           msg += '\n';
@@ -148,6 +155,7 @@ let replyETA = state => {
       } else {
         msg += 'There is no bus in coming hour. ';
       }
+
       return msg;
     })
     .then(msg => bot.sendMessage(state.chatid, msg));
@@ -189,6 +197,7 @@ let defaultHandler = msg => {
             break;
           case 2:
             state.stop = parseStop(state, tokens[i]);
+            delete state.dist; 
             break;
         }
         state.progress++;
@@ -198,6 +207,27 @@ let defaultHandler = msg => {
     })
     .then(state => handleState(state))
     // .catch(err => bot.sendMessage(chatid, 'Unaccepted format. ' + JSON.stringify(err)));
+};
+
+let getNearestStop = state => {
+  console.log(state.stopOptions);
+  let dists = state.stopOptions.map(stop => geolib.getDistance(state.location, stop.location));
+  let id = dists.indexOf(Math.min.apply(null, dists));
+  return {stop: id, dist: dists[id]};
+};
+
+let locationHandler = msg => {
+  let state = Object.assign({}, getState(msg.chat.id));
+  console.log(state);
+  state.location = msg.location;
+  if (state.progress == 2) {
+    state.progress = 3;
+    let nearestData = getNearestStop(state);
+    state.stop = nearestData.stop;
+    state.dist = nearestData.dist;
+  }
+  setState(msg.chat.id, state);
+  return handleState(state);
 };
 
 const handleObjects = [
@@ -228,20 +258,24 @@ const handleObjects = [
   }
 ];
 
-bot.on('location', msg => {
-  let location = msg.location;
-  console.log(location);
-});
+let locationHandlerObject = {
+  name: 'location',
+  handler: locationHandler
+};
 
 bot.on('message', msg => {
   let handle = handleObjects[handleObjects.length - 1];
   let match;
 
-  for (let thisHandle of handleObjects) {
-    if (thisHandle.regex && (match = msg.text.match(thisHandle.regex))) {
-      if (thisHandle.condition && !thisHandle.condition(msg)) continue;
-      handle = thisHandle;
-      break;
+  if (msg.location) {
+    handle = locationHandlerObject;
+  } else {
+    for (let thisHandle of handleObjects) {
+      if (thisHandle.regex && (match = msg.text.match(thisHandle.regex))) {
+        if (thisHandle.condition && !thisHandle.condition(msg)) continue;
+        handle = thisHandle;
+        break;
+      }
     }
   }
 
