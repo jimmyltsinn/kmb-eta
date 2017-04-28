@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const geolib = require('geolib');
 
 const config = require('../config').Telegram;
-const Datasource = require('../core/fetch-data');
+const DataSource = require('../core/datasource');
 const util = require('../core/util');
 
 const bot = new TelegramBot(config.token, {polling: true});
@@ -70,7 +70,7 @@ let parseRoute = (state, input) => {
 };
 
 let askForBound = state => {
-  return Datasource.getBoundsInfo(state.route)
+  return DataSource.getBoundsInfo(state.route)
     .then(bounds => {
       state.boundOptions = bounds.map(bound => ({
         id: bound.boundId,
@@ -97,7 +97,7 @@ let parseBound = (state, input) => {
 };
 
 let askForStop = state => {
-  return Datasource.getStops(state.route, state.bound)
+  return DataSource.getStops(state.route, state.bound)
     .then(stops => {
       state.stopOptions = stops.map(stop => ({
         id: stop.seq,
@@ -132,7 +132,7 @@ let parseStop = (state, input) => {
 };
 
 let replyETA = state => {
-  return Datasource.getETA(state.route, state.bound, state.stop)
+  return DataSource.getETA(state.route, state.bound, state.stop)
     .then(data => {
       let msg = `${state.route} `;
       msg += state.boundOptions.filter(bound => bound.id == state.bound)[0].text + '\n';
@@ -197,7 +197,7 @@ let defaultHandler = msg => {
             break;
           case 2:
             state.stop = parseStop(state, tokens[i]);
-            delete state.dist; 
+            delete state.dist;
             break;
         }
         state.progress++;

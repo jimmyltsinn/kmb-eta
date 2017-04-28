@@ -157,11 +157,11 @@ function parseStopOfAll(stop) {
       eng: stop.EName,
       chi: stop.CName
     },
-    location: {
+    address: {
       eng: [stop.ELocation1, stop.ELocation2, stop.ELocation3].join(' ').trim(),
       chi: [stop.CLocation1, stop.CLocation2, stop.CLocation3].join('').trim()
     },
-    position: xyToLatLng({
+    location: xyToLatLng({
       x: stop.x,
       y: stop.y
     }),
