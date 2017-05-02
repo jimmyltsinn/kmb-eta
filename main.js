@@ -1,9 +1,9 @@
 let datasource = require('./core/datasource');
-let scrape = require('./scraper/scraper');
+let scraper = require('./scraper/scraper');
 let database = require('./core/database');
 let test = require('./core/test');
 
-const route = 'N269';
+const route = '49X';
 const bound = 2;
 const serviceType = 1;
 const bsiCode = 'CA07-N-1400-0';
@@ -13,10 +13,15 @@ const seq = 7;
 // scrape.scrapeAllStops()
 // scrape.scrapeRoute(route, bound)
 
-// datasource.getInfo(route, bound, true)
+// database.setup()
+// scraper.scrapeAllStops()
+// scraper.scrapeRoute(route, bound, serviceType)
+// scraper.scrapeAllRoutes()
+
+// datasource.getInfo(route, bound, serviceType, true)
 //   .then(test.checkInfo)
 
-// datasource.getStops(route, bound)
+// datasource.getStops(route, bound, serviceType)
 // datasource.getSchedule(route, bound)
 // datasource.getBoundsInfo(route)
 // datasource.getAnnounce(route, bound)

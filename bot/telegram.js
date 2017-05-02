@@ -98,7 +98,7 @@ let parseBound = (state, input) => {
 };
 
 let askForStop = state => {
-  return DataSource.getStops(state.route, state.bound)
+  return DataSource.getStops(state.route, state.bound, state.serviceType)
     .then(stops => {
       state.stopOptions = stops.map(stop => ({
         seq: stop.seq,
@@ -134,13 +134,13 @@ let parseStop = (state, input) => {
 };
 
 let replyETA = state => {
-  return DataSource.getETA(state.route, state.bound, state.serviceType, state.stop, state.bsiCode)
+  return DataSource.getETA(state.route, state.bound, state.serviceType, state.seq, state.bsiCode)
     .then(data => {
       let msg = `${state.route} `;
-      msg += state.boundOptions.filter(bound => bound.id == state.bound)[0].text + '\n';
+      msg += state.boundOptions.filter(bound => bound.bound == state.bound && bound.serviceType == state.serviceType)[0].text + '\n';
 
       msg += 'Stop: ';
-      msg += state.stopOptions.filter(stop => stop.id == state.stop)[0].text;
+      msg += state.stopOptions.filter(stop => stop.seq == state.seq)[0].text;
 
       if (state.dist) {
         msg += ` (${state.dist} m)`;
@@ -198,7 +198,7 @@ let defaultHandler = msg => {
             break;
           case 1:
             obj = parseBound(state, tokens[i]);
-            state.bound = obj.id;
+            state.bound = obj.bound;
             state.serviceType = obj.serviceType;
             break;
           case 2:
@@ -221,17 +221,17 @@ let getNearestStop = state => {
   console.log(state.stopOptions);
   let dists = state.stopOptions.map(stop => geolib.getDistance(state.location, stop.location));
   let id = dists.indexOf(Math.min.apply(null, dists));
-  return {stop: id, dist: dists[id]};
+  return {id: id, dist: dists[id]};
 };
 
 let locationHandler = msg => {
   let state = Object.assign({}, getState(msg.chat.id));
-  console.log(state);
   state.location = msg.location;
   if (state.progress == 2) {
     state.progress = 3;
     let nearestData = getNearestStop(state);
-    state.stop = nearestData.stop;
+    state.seq = state.stopOptions[nearestData.id].seq;
+    state.bsiCode = state.stopOptions[nearestData.id].bsiCode;
     state.dist = nearestData.dist;
   }
   setState(msg.chat.id, state);
