@@ -3,13 +3,15 @@ let scrape = require('./scraper/scraper');
 let database = require('./core/database');
 let test = require('./core/test');
 
-const route = '69M';
+const route = 'N269';
 const bound = 2;
-const seq = 0;
+const serviceType = 1;
+const bsiCode = 'CA07-N-1400-0';
+const seq = 7;
 
 // database.setup()
 // scrape.scrapeAllStops()
-scrape.scrapeRoute(route, bound)
+// scrape.scrapeRoute(route, bound)
 
 // datasource.getInfo(route, bound, true)
 //   .then(test.checkInfo)
@@ -19,6 +21,6 @@ scrape.scrapeRoute(route, bound)
 // datasource.getBoundsInfo(route)
 // datasource.getAnnounce(route, bound)
 // datasource.getAllStops()
-// datasource.getETA(route, bound, seq)
+datasource.getETA(route, bound, serviceType, seq, bsiCode)
   .then(obj => console.log(obj))
   .catch(console.error);

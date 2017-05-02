@@ -73,7 +73,8 @@ let askForBound = state => {
   return DataSource.getBoundsInfo(state.route)
     .then(bounds => {
       state.boundOptions = bounds.map(bound => ({
-        id: bound.boundId,
+        bound: bound.bound,
+        serviceType: bound.serviceType,
         text: `${bound.origin[lang]}➡️${bound.destination[lang]}`,
       }));
       return bot.sendMessage(state.chatid, 'Please select the direction. ', {
@@ -92,7 +93,7 @@ let parseBound = (state, input) => {
   if (!isNaN(parseInt(input))) return parseInt(input);
   for (let i = 0; i < state.boundOptions.length; ++i)
     if (input === state.boundOptions[i].text)
-      return state.boundOptions[i].id;
+      return state.boundOptions[i];
   return undefined;
 };
 
@@ -100,9 +101,10 @@ let askForStop = state => {
   return DataSource.getStops(state.route, state.bound)
     .then(stops => {
       state.stopOptions = stops.map(stop => ({
-        id: stop.seq,
+        seq: stop.seq,
         text: stop.name[lang],
-        location: stop.location
+        location: stop.location,
+        bsiCode: stop.bsiCode
       }));
       return bot.sendMessage(state.chatid, 'Please select the stop', {
         reply_markup: JSON.stringify({
@@ -127,12 +129,12 @@ let parseStop = (state, input) => {
   if (!isNaN(parseInt(input))) return parseInt(input);
   for (let i = 0; i < state.stopOptions.length; ++i)
     if (input === state.stopOptions[i].text)
-      return state.stopOptions[i].id;
+      return state.stopOptions[i];
   return undefined;
 };
 
 let replyETA = state => {
-  return DataSource.getETA(state.route, state.bound, state.stop)
+  return DataSource.getETA(state.route, state.bound, state.serviceType, state.stop, state.bsiCode)
     .then(data => {
       let msg = `${state.route} `;
       msg += state.boundOptions.filter(bound => bound.id == state.bound)[0].text + '\n';
@@ -187,16 +189,22 @@ let defaultHandler = msg => {
       let tokens = text.split('-');
       state.progress = Math.min(state.progress, 3 - tokens.length);
 
+      let obj = undefined;
+
       for (let i = 0; i < tokens.length; ++i) {
         switch (state.progress) {
           case 0:
             state.route = parseRoute(state, tokens[i]);
             break;
           case 1:
-            state.bound = parseBound(state, tokens[i]);
+            obj = parseBound(state, tokens[i]);
+            state.bound = obj.id;
+            state.serviceType = obj.serviceType;
             break;
           case 2:
-            state.stop = parseStop(state, tokens[i]);
+            obj = parseStop(state, tokens[i]);
+            state.seq = obj.seq;
+            state.bsiCode = obj.bsiCode;
             delete state.dist;
             break;
         }

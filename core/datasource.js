@@ -1,5 +1,6 @@
 const fetch = require('isomorphic-fetch');
 const proj4 = require('proj4');
+const FormData = require('form-data');
 
 const util = require('./util');
 
@@ -202,7 +203,7 @@ function getInfo(route, bound, detailed = false) {
     .then(obj => obj.data)
     .then(info => parseInfo(info, detailed))
     .then(obj => {
-      obj.boundId = bound;
+      obj.bound = bound;
       return obj;
     });
 }
@@ -217,11 +218,27 @@ function getStops(route, bound) {
     .catch(console.error);
 }
 
-function getETA(route, bound, seq) {
-  let bsiCode = 'dummy';
-  let serviceType = 1;
+function etaPostBody(route, bound, serviceType, seq, bsiCode) {
+  const seperator = '--3113--';
+  const date = new Date();
+  const buf = new Buffer(route.toUpperCase().trim() + seperator + bound + seperator + serviceType + seperator + bsiCode.replace(/-/gi, '') + seperator + seq + seperator + (new Date()).getTime());
+  const obj = {
+    token: 'EA' + buf.toString('base64'),
+    t: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDay() + ' ' + date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds()
+  };
+
+  return Object.keys(obj).reduce((data, key) => {
+    data.append(key, obj[key]);
+    return data;
+  }, new FormData());
+}
+
+function getETA(route, bound, serviceType, seq, bsiCode) {
   route = route.toUpperCase();
-  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx/?action=get_eta&lang=${lang}&route=${route}&bound=${bound}&seq=${seq}&servicetype=${serviceType}&bsiCode=${bsiCode}`)
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx/?action=get_ETA&lang=${lang}`, {
+    method: 'POST',
+    body: etaPostBody(route, bound, serviceType, seq, bsiCode),
+  })
     .then(res => res.json())
     .then(obj => obj.data)
     .then(obj => {
