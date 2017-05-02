@@ -14,7 +14,7 @@ let setupCollectionStops = db => {
     });
 };
 
-let setup = db => {
+let setup = () => {
   let dbConnection = undefined;
   return connect()
     .then(db => {
@@ -29,14 +29,14 @@ let setup = db => {
     });
 };
 
-let addStop = (db, stop) => {
-  return db.collection('stops')
-    .updateOne({bsiCode: stop.bsiCode}, {$set: stop}, {upsert: true});
-};
+let addStop = (db, stop) => db.collection('stops')
+  .updateOne({bsiCode: stop.bsiCode}, {$set: stop}, {upsert: true});
+
+let getStop = (db, bsiCode) => db.collection('stops').findOne({bsiCode});
 
 module.exports = {
   connect,
   setup,
   addStop,
-  // clearStops
+  getStop
 };

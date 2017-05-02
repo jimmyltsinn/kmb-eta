@@ -1,20 +1,24 @@
-let DataSource = require('./core/datasource');
-let Scraper = require('./scraper/scraper');
-let Database = require('./core/database');
+let datasource = require('./core/datasource');
+let scrape = require('./scraper/scraper');
+let database = require('./core/database');
+let test = require('./core/test');
 
-const route = '58M';
+const route = '69M';
 const bound = 2;
 const seq = 0;
 
-Database.setup()
+// database.setup()
+// scrape.scrapeAllStops()
+scrape.scrapeRoute(route, bound)
 
-// DataSource.getStops(route, bound)
-// DataSource.getSchedule(route, bound)
-// DataSource.getBoundsInfo(route)
-// DataSource.getInfo(route, bound)
-// DataSource.getAnnounce(route, bound)
-// DataSource.getAllStops()
-// DataSource.getETA(route, bound, seq)
-// Scraper.scrapeAllStops()
+// datasource.getInfo(route, bound, true)
+//   .then(test.checkInfo)
+
+// datasource.getStops(route, bound)
+// datasource.getSchedule(route, bound)
+// datasource.getBoundsInfo(route)
+// datasource.getAnnounce(route, bound)
+// datasource.getAllStops()
+// datasource.getETA(route, bound, seq)
   .then(obj => console.log(obj))
   .catch(console.error);

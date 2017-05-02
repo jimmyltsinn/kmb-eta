@@ -21,7 +21,15 @@ const arrayToGrid = (arr, len) => {
   return ret;
 };
 
-const toCamelCase = str => str.toLowerCase().split(' ').map(word => word[0].toUpperCase() + word.slice(1)).join(' ').trim();
+// const toCamelCase = str => str.toLowerCase().split(' ').map(word => word[0].toUpperCase() + word.slice(1)).join(' ').trim();
+
+const toCamelCase = str => {
+  return str.toLowerCase().split(/ +/).map(word => {
+    if (word.length < 1) return '';
+    if (!(/^[a-zA-Z]+$/.test(word))) return word.toUpperCase();
+    return word[0].toUpperCase() + word.slice(1);
+  }).join(' ').trim();
+};
 
 module.exports = {
   filterObjectByKeys,

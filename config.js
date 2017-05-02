@@ -1,10 +1,13 @@
 let config = {
-  'GoogleMap': {
-    'apiKey': 'KEY'
+  General: {
+    datasourceDomain: 'DOMAIN'
   },
-  'Telegram': {
+  GoogleMap: {
+    apiKey: 'KEY'
+  },
+  Telegram: {
     token: 'TOKEN',
-    adminChatId: '45778833'
+    adminChatId: 'CHAT_ID'
   }
 };
 

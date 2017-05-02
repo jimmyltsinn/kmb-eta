@@ -22,46 +22,9 @@ function xyToLatLng(loc) {
   };
 }
 
-function parseInfo(info) {
-  const infoKeys = [
-    'Racecourse',
-    'Airport',
-    'Overnight',
-    'Special',
-    'BusType',
-
-    'OriCName',
-    'OriEName',
-    // 'OriSCName',
-
-    'DestCName',
-    'DestEName',
-    // 'DestSCName',
-
-    'ServiceTypeTC',
-    'ServiceTypeENG',
-    // 'ServiceTypeSC',
-  ];
-
-  let ret = {
-    origin: {
-      eng: util.toCamelCase(info.OriEName),
-      chi: info.OriCName
-    },
-    destination: {
-      eng: util.toCamelCase(info.DestEName),
-      chi: info.DestCName
-    }
-  };
-
-  if (info.ServiceTypeENG && info.ServiceTypeENG !== '') {
-    ret.serviceType = {
-      eng: util.toCamelCase(info.ServiceTypeENG),
-      chi: info.ServiceTypeTC
-    };
-  }
-
-  return ret;
+function parseRoute(str) {
+  return JSON.parse(str.replace(/[a-zA-Z]+/g, '"$&"'));
+  // return eval('(' + str + ')');
 }
 
 function parseStop(stop) {
@@ -100,6 +63,56 @@ function parseStop(stop) {
       y: stop.Y
     }),
   };
+}
+
+function parseInfo(info, detailed = false) {
+  const infoKeys = [
+    'Racecourse',
+    'Airport',
+    'Overnight',
+    'Special',
+    'BusType',
+
+    'OriCName',
+    'OriEName',
+    // 'OriSCName',
+
+    'DestCName',
+    'DestEName',
+    // 'DestSCName',
+
+    'ServiceTypeTC',
+    'ServiceTypeENG',
+    // 'ServiceTypeSC',
+  ];
+
+  let ret = {
+    origin: {
+      eng: util.toCamelCase(info.basicInfo.OriEName),
+      chi: info.basicInfo.OriCName
+    },
+    destination: {
+      eng: util.toCamelCase(info.basicInfo.DestEName),
+      chi: info.basicInfo.DestCName
+    }
+  };
+
+  if (info.basicInfo.ServiceTypeENG && info.basicInfo.ServiceTypeENG !== '') {
+    ret.serviceType = {
+      eng: util.toCamelCase(info.basicInfo.ServiceTypeENG),
+      chi: info.basicInfo.ServiceTypeTC
+    };
+  }
+
+  if (detailed) {
+    ret.stops = info.routeStops.map(parseStop);
+    ret.route = parseRoute(info.route.lineGeometry).paths
+      .map(path => path
+        .map(pt => xyToLatLng({x: pt[0], y: pt[1]}))
+      );
+  }
+
+  return ret;
 }
 
 function parseETA(eta) {
@@ -154,11 +167,11 @@ function parseAnnouncement(announcement) {
 function parseStopOfAll(stop) {
   return {
     name: {
-      eng: stop.EName,
+      eng: util.toCamelCase(stop.EName),
       chi: stop.CName
     },
     address: {
-      eng: [stop.ELocation1, stop.ELocation2, stop.ELocation3].join(' ').trim(),
+      eng: util.toCamelCase([stop.ELocation1, stop.ELocation2, stop.ELocation3].join(' ').trim()),
       chi: [stop.CLocation1, stop.CLocation2, stop.CLocation3].join('').trim()
     },
     location: xyToLatLng({
@@ -182,12 +195,12 @@ function getAnnouncementDetail(announcement) {
     .catch(() => announcement);
 }
 
-function getInfo(route, bound) {
+function getInfo(route, bound, detailed = false) {
   route = route.toUpperCase();
   return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getstops&route=${route}&bound=${bound}`)
     .then(res => res.json())
-    .then(obj => obj.data.basicInfo)
-    .then(parseInfo)
+    .then(obj => obj.data)
+    .then(info => parseInfo(info, detailed))
     .then(obj => {
       obj.boundId = bound;
       return obj;
