@@ -31,11 +31,21 @@ const toCamelCase = str => {
   }).join(' ').trim();
 };
 
+const shuffle = arr => {
+  let cnt = arr.length;
+  while (cnt > 0) {
+    let i = Math.floor(Math.random() * cnt);
+    cnt--;
+    [arr[cnt], arr[i]] = [arr[i], arr[cnt]];
+  }
+};
+
 module.exports = {
   filterObjectByKeys,
   getBody,
   removeTags,
   replaceNewLineCharacter,
   arrayToGrid,
-  toCamelCase
+  toCamelCase,
+  shuffle
 };

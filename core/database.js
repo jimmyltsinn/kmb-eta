@@ -5,14 +5,21 @@ const dbname = 'kmb';
 
 let connect = () => MongoClient.connect(url + dbname).catch(() => undefined);
 
-let setupCollectionStops = db => {
-  return db.collection('stops')
-    .createIndex({
-      bsiCode: 1
-    }, {
-      unique: true
-    });
-};
+let setupCollectionStops = db => db.collection('stops')
+  .createIndex({
+    bsiCode: 1
+  }, {
+    unique: true
+  });
+
+let setupCollectionRoutes = db => db.collection('routes')
+  .createIndex({
+    route: 1,
+    bound: 1,
+    serviceType: 1
+  }, {
+    unique: true
+  });
 
 let setup = () => {
   let dbConnection = undefined;
@@ -21,6 +28,7 @@ let setup = () => {
       dbConnection = db;
     })
     .then(() => setupCollectionStops(dbConnection))
+    .then(() => setupCollectionRoutes(dbConnection))
     .catch(console.err)
     .then(() => {
       if (dbConnection)

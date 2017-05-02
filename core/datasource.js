@@ -94,7 +94,7 @@ function parseInfo(info, detailed = false) {
     destination: {
       eng: util.toCamelCase(info.basicInfo.DestEName),
       chi: info.basicInfo.DestCName
-    }
+    },
   };
 
   if (info.basicInfo.ServiceTypeENG && info.basicInfo.ServiceTypeENG !== '') {
@@ -106,7 +106,7 @@ function parseInfo(info, detailed = false) {
 
   if (detailed) {
     ret.stops = info.routeStops.map(parseStop);
-    ret.route = parseRoute(info.route.lineGeometry).paths
+    ret.path = parseRoute(info.route.lineGeometry).paths
       .map(path => path
         .map(pt => xyToLatLng({x: pt[0], y: pt[1]}))
       );
@@ -195,33 +195,41 @@ function getAnnouncementDetail(announcement) {
     .catch(() => announcement);
 }
 
-function getInfo(route, bound, detailed = false) {
+function getInfo(route, bound, serviceType = 1, detailed = false) {
+  console.log(`[GetInfo] Route:${route} Bound: ${bound}, ServiceType: ${serviceType}`);
   route = route.toUpperCase();
-  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getstops&route=${route}&bound=${bound}`)
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getstops&route=${route}&bound=${bound}&servicetype=${serviceType}`)
     .then(res => res.json())
     .then(obj => obj.data)
     .then(info => parseInfo(info, detailed))
     .then(obj => {
-      obj.boundId = bound;
+      obj.route = route;
+      obj.bound = bound;
+      obj.serviceType = serviceType;
       return obj;
-    });
+    })
+    .catch(() => undefined);
 }
 
-function getStops(route, bound) {
+function getStops(route, bound, serviceType = 1) {
+  console.log(route, bound, serviceType);
   route = route.toUpperCase();
-  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getstops&route=${route}&bound=${bound}`)
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getstops&route=${route}&bound=${bound}&serviceType=${serviceType}`)
     .then(res => res.json())
     .then(obj => obj.data)
     .then(obj => obj.routeStops.length > 0 ? obj.routeStops : undefined)
     .then(obj => obj.map(parseStop))
-    .catch(console.error);
+    .catch(err => {
+      console.error(err);
+      return undefined;
+    });
 }
 
-function getETA(route, bound, seq) {
+function getETA(route, bound, seq, serviceType = 1) {
   let bsiCode = 'dummy';
-  let serviceType = 1;
   route = route.toUpperCase();
-  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx/?action=get_eta&lang=${lang}&route=${route}&bound=${bound}&seq=${seq}&servicetype=${serviceType}&bsiCode=${bsiCode}`)
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx/?action=get_eta&lang=${lang}&route=${route}&bound=${bound}&seq=${seq}&servicetype=${serviceType}&bsiCode=${bsiCode}`, {method: 'POST', body: {
+  }})
     .then(res => res.json())
     .then(obj => obj.data)
     .then(obj => {
@@ -238,8 +246,8 @@ function getETA(route, bound, seq) {
     .catch(() => undefined);
 }
 
-function getSchedule(route, bound) {
-  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getschedule&route=${route}&bound=${bound}`)
+function getSchedule(route, bound, serviceType = 1) {
+  return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getschedule&route=${route}&bound=${bound}&servicetype=${serviceType}`)
     .then(res => res.json())
     .then(obj => obj.data['01']);
 }
@@ -260,15 +268,19 @@ function getAllStops() {
 }
 
 function getBounds(route) {
+  console.log('Get bounds: ' + route);
   return fetch(domain + `KMBWebSite/Function/FunctionRequest.ashx?action=getroutebound&route=${route}`)
     .then(res => res.json())
-    .then(json => json.data);
+    .then(bounds => bounds.data.map(bound => ({
+      route,
+      bound: bound.BOUND,
+      serviceType: bound.SERVICE_TYPE
+    })));
 }
 
 function getBoundsInfo(route) {
   return getBounds(route)
-    .then(items => items.map(bound => bound.BOUND).filter((item, pos, self) => self.indexOf(item) == pos))
-    .then(bounds => Promise.all(bounds.map(bound => getInfo(route, bound))));
+    .then(bounds => Promise.all(bounds.map(bound => getInfo(route, bound.bound, bound.serviceType))));
 }
 
 module.exports = {

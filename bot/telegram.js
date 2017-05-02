@@ -73,7 +73,8 @@ let askForBound = state => {
   return DataSource.getBoundsInfo(state.route)
     .then(bounds => {
       state.boundOptions = bounds.map(bound => ({
-        id: bound.boundId,
+        bound: bound.bound,
+        serviceType: bound.serviceType,
         text: `${bound.origin[lang]}➡️${bound.destination[lang]}`,
       }));
       return bot.sendMessage(state.chatid, 'Please select the direction. ', {
@@ -92,12 +93,12 @@ let parseBound = (state, input) => {
   if (!isNaN(parseInt(input))) return parseInt(input);
   for (let i = 0; i < state.boundOptions.length; ++i)
     if (input === state.boundOptions[i].text)
-      return state.boundOptions[i].id;
+      return {bound: state.boundOptions[i].bound, serviceType: state.boundOptions[i].serviceType};
   return undefined;
 };
 
 let askForStop = state => {
-  return DataSource.getStops(state.route, state.bound)
+  return DataSource.getStops(state.route, state.bound.bound, state.bound.serviceType)
     .then(stops => {
       state.stopOptions = stops.map(stop => ({
         id: stop.seq,
@@ -132,10 +133,10 @@ let parseStop = (state, input) => {
 };
 
 let replyETA = state => {
-  return DataSource.getETA(state.route, state.bound, state.stop)
+  return DataSource.getETA(state.route, state.bound.bound, state.stop, state.bound.serviceType)
     .then(data => {
       let msg = `${state.route} `;
-      msg += state.boundOptions.filter(bound => bound.id == state.bound)[0].text + '\n';
+      msg += state.boundOptions.filter(bound => bound.bound == state.bound.bound && bound.serviceType == state.bound.serviceType)[0].text + '\n';
 
       msg += 'Stop: ';
       msg += state.stopOptions.filter(stop => stop.id == state.stop)[0].text;
