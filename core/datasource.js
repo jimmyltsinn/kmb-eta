@@ -105,13 +105,13 @@ function parseInfo(info, detailed = false) {
     };
   }
 
-  ret.racecourse = info.Racecourse === 'Y';
-  ret.airport = info.Airport === 'Y';
-  ret.overnight = info.Overnight === 'Y';
-  ret.special = info.Special === 'Y';
+  ret.racecourse = info.basicInfo.Racecourse == 'Y';
+  ret.airport = info.basicInfo.Airport == 'Y';
+  ret.overnight = info.basicInfo.Overnight == 'Y';
+  ret.special = info.basicInfo.Special == 'Y';
 
-  if (info.BusType)
-    ret.busType = info.BusType;
+  if (info.basicInfo.BusType)
+    ret.busType = info.basicInfo.BusType;
 
   if (detailed) {
     ret.stops = info.routeStops.map(parseStop);
@@ -306,7 +306,7 @@ function getBounds(route) {
 
 function getBoundsInfo(route) {
   return getBounds(route)
-    .then(bounds => Promise.all(bounds.map(bound => getInfo(route, bound.bound, bound.serviceType))));
+    .then(bounds => Promise.all(bounds.map(bound => getInfo(route, bound.bound, bound.serviceType, true))));
 }
 
 module.exports = {

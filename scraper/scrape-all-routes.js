@@ -30,7 +30,7 @@ let insertRoute = (info) => {
   let dbConnection = undefined;
   return database.connect()
     .then(db => dbConnection = db)
-    .then(() => dbConnection.collection('route')
+    .then(() => dbConnection.collection('routes')
         .updateOne({route, bound, type}, {$set: info}, {upsert: true})
     )
     .then(() => {
@@ -39,9 +39,14 @@ let insertRoute = (info) => {
     })
     .catch(err => {
       console.error('ERROR');
-      console.error(err);
       if (dbConnection)
-        return dbConnection.close().then(() => undefined);
+        return dbConnection.collection('error')
+          .updateOne(route, {$set: {
+            route,
+            info,
+            err
+          }}, {upsert: true})
+          .then(() => dbConnection.close());
       return undefined;
     });
 }
@@ -51,7 +56,7 @@ function main() {
   const prefixList = ['', 'A', 'B', 'C', 'R', 'E', 'NA'];
   const numList = Array.from({length: 3}, (v, i) => i).slice(1);
   // const numList = [49]
-  const suffixList = ['', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
+  const suffixList = ['', ...'ABCDEFGHJKLMNPQRSTUVWXYZ'.split('')];
   // const suffixList = ['', ...'ABCDX'.split('')];
 
   let routeList = numList.map(num => prefixList.map(prefix => suffixList.map(suffix => prefix + num + suffix)));
