@@ -13,11 +13,11 @@ services:
       - db:mongo
     ports:
       - 8081:8081
-  telegram-bot:
-    image: node
-    volumes:
-      - ./:/app
-    working_dir: /app
-    environment:
-      - PATH=$PATH:node_modules/.bin
-    command: gulp telegram-bot
+#   telegram-bot:
+#     image: node
+#     volumes:
+#       - ./:/app
+#     working_dir: /app
+#     environment:
+#       - PATH=$PATH:node_modules/.bin
+#     command: gulp telegram-bot

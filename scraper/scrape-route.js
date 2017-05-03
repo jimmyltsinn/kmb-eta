@@ -22,7 +22,7 @@ let insertRoute = (route, bound, serviceType, info) => {
       })
     )))
     .then(stops => info.stops = stops)
-    .then(() => dbConnection.collection('routes')
+    .then(() => dbConnection.collection('route-detail')
         .updateOne({route, bound, serviceType}, {$set: info}, {upsert: true})
     )
     .then(() => {
