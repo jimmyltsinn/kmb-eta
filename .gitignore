@@ -60,3 +60,4 @@ dist-web
 config.js
 
 /data
+.env

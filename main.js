@@ -13,7 +13,7 @@ const seq = 7;
 // scrape.scrapeAllStops()
 // scrape.scrapeRoute(route, bound)
 
-// database.setup()
+database.setup()
 // scraper.scrapeAllStops()
 // scraper.scrapeRoute(route, bound, serviceType)
 // scraper.scrapeAllRoutes()
@@ -26,6 +26,6 @@ const seq = 7;
 // datasource.getBoundsInfo(route)
 // datasource.getAnnounce(route, bound)
 // datasource.getAllStops()
-datasource.getETA(route, bound, serviceType, seq, bsiCode)
+// datasource.getETA(route, bound, serviceType, seq, bsiCode)
   .then(obj => console.log(obj))
   .catch(console.error);
