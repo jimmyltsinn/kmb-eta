@@ -99,11 +99,19 @@ function parseInfo(info, detailed = false) {
   };
 
   if (info.basicInfo.ServiceTypeENG && info.basicInfo.ServiceTypeENG !== '') {
-    ret.serviceType = {
+    ret.typeDetail = {
       eng: util.toCamelCase(info.basicInfo.ServiceTypeENG),
       chi: info.basicInfo.ServiceTypeTC
     };
   }
+
+  ret.racecourse = info.Racecourse === 'Y';
+  ret.airport = info.Airport === 'Y';
+  ret.overnight = info.Overnight === 'Y';
+  ret.special = info.Special === 'Y';
+
+  if (info.BusType)
+    ret.busType = info.BusType;
 
   if (detailed) {
     ret.stops = info.routeStops.map(parseStop);
@@ -206,7 +214,7 @@ function getInfo(route, bound, serviceType = 1, detailed = false) {
     .then(obj => {
       obj.route = route;
       obj.bound = bound;
-      obj.serviceType = serviceType;
+      obj.type = serviceType;
       return obj;
     })
     .catch(() => undefined);

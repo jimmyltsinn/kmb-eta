@@ -213,7 +213,7 @@ let defaultHandler = msg => {
       setState(chatid, state);
       return state;
     })
-    .then(state => handleState(state))
+    .then(state => handleState(state));
     // .catch(err => bot.sendMessage(chatid, 'Unaccepted format. ' + JSON.stringify(err)));
 };
 

@@ -9,14 +9,14 @@ const serviceType = 1;
 const bsiCode = 'CA07-N-1400-0';
 const seq = 7;
 
-// database.setup()
+database.setup()
 // scrape.scrapeAllStops()
 // scrape.scrapeRoute(route, bound)
 
 database.setup()
 // scraper.scrapeAllStops()
 // scraper.scrapeRoute(route, bound, serviceType)
-// scraper.scrapeAllRoutes()
+scraper.scrapeAllRoutes()
 
 // datasource.getInfo(route, bound, serviceType, true)
 //   .then(test.checkInfo)
