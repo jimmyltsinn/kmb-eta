@@ -28,11 +28,15 @@ services:
     ports:
       - 3000:3000
     command: gulp server
-#   telegram-bot:
-#     image: node
-#     volumes:
-#       - ./:/app
-#     working_dir: /app
-#     environment:
-#       - PATH=$PATH:node_modules/.bin
-#     command: gulp telegram-bot
+  telegram-bot:
+    image: node
+    volumes:
+      - ./:/app
+    working_dir: /app
+    links:
+      - mongodb
+    environment:
+      - PATH=$PATH:node_modules/.bin
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DBNAME=kmb
+    command: gulp telegram-bot

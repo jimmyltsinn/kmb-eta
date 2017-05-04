@@ -310,9 +310,9 @@ function getBounds(route) {
     })));
 }
 
-function getBoundsInfo(route) {
+function getBoundsInfo(route, detail = true) {
   return getBounds(route)
-    .then(bounds => Promise.all(bounds.map(bound => getInfo(route, bound.bound, bound.serviceType, true))));
+    .then(bounds => Promise.all(bounds.map(bound => getInfo(route, bound.bound, bound.serviceType, detail))));
 }
 
 module.exports = {

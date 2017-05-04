@@ -26,7 +26,7 @@ app.get('/route/:route', (req, res) => {
   let db = undefined;
   return database.connect()
     .then(dbc => db = dbc)
-    .then(() => database.getRoutes(db, req.params.route))
+    .then(() => database.getRoutes(db, req.params.route.toUpperCase()))
     .then(data => {
       if (db) db.close();
       return data;

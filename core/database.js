@@ -3,10 +3,7 @@ const MongoClient = require('mongodb').MongoClient;
 const url = process.env.MONGODB_URL || 'mongodb://localhost:27017';
 const dbname = process.env.MONGODB_DBNAME || 'kmb';
 
-let connect = () => {
-  console.log(url);
-  return MongoClient.connect(url + '/' + dbname).catch(() => undefined);
-};
+let connect = () => MongoClient.connect(url + '/' + dbname).catch(() => undefined);
 
 let setupCollectionStops = db => db.collection('stops')
   .createIndex({
@@ -46,7 +43,7 @@ let addStop = (db, stop) => db.collection('stops')
 let getStop = (db, bsiCode) => db.collection('stops').findOne({bsiCode});
 
 let getAllRoutes = db => db.collection('routes').find({}, {route: 1, bound: 1, type: 1, origin: 1, destination: 1, typeDetail: 1, _id: 0}).toArray();
-let getRoutes = (db, route) => db.collection('routes').find({route}, {_id: 0}).toArray();
+let getRoutes = (db, route) => db.collection('routes').find({route}, {_id: 0}).sort({route: 1}).toArray();
 
 module.exports = {
   connect,
