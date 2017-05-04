@@ -25,7 +25,7 @@ let setupCollectionRoutes = db => db.collection('routes')
   .createIndex({
     route: 1,
     bound: 1,
-    serviceType: 1
+    type: 1
   }, {
     unique: true
   });
@@ -38,7 +38,7 @@ let setup = () => {
     })
     .then(() => setupCollectionStops(dbConnection))
     .then(() => setupCollectionRoutes(dbConnection))
-    .then(() => setupCollectionRouteDetail(dbConnection))
+//    .then(() => setupCollectionRouteDetail(dbConnection))
     .catch(console.err)
     .then(() => {
       if (dbConnection)
