@@ -3,49 +3,60 @@ const geolib = require('geolib');
 
 const config = require('../config').Telegram;
 const DataSource = require('../core/datasource');
+const database = require('./telegram-db');
 const util = require('../core/util');
 
 const bot = new TelegramBot(config.token, {polling: true});
 
-const record = {};
-const state = {};
+// const record = {};
+// const state = {};
 
 const lang = 'chi';
 
-let recordHistory = (handleName, msg, res = '') => {
-  let ret = {
-    time: new Date().getTime(),
-    handle: handleName,
-    message: msg,
-    response: res
-  };
+// let recordHistory = (handleName, msg, res = '') => {
+//   let ret = {
+//     time: new Date().getTime(),
+//     handle: handleName,
+//     message: msg,
+//     response: res
+//   };
+//
+//   if (!record[msg.chat.id]) record[msg.chat.id] = [];
+//   record[msg.chat.id] = [
+//     ...record[msg.chat.id],
+//     ret
+//   ];
+//
+//   return ret;
+// };
 
-  if (!record[msg.chat.id]) record[msg.chat.id] = [];
-  record[msg.chat.id] = [
-    ...record[msg.chat.id],
-    ret
-  ];
-
-  return ret;
-};
-
-let initState = chatid => ({
-  chatid: chatid,
-  progress: 0
-});
+// let initState = chatid => ({
+//   chatid: chatid,
+//   progress: 0
+// });
 
 let myid = msg => `Your chat id is ${msg.chat.id}`;
-let history = msg => history[msg.chat.id] ? history[msg.chat.id].map(JSON.stringify) : 'EMPTY';
-let getState = id => state[id] ? state[id] : (state[id] = initState(id));
-let setState = (id, inState = initState(id)) => state[id] = inState;
+
+// let history = msg => history[msg.chat.id] ? history[msg.chat.id].map(JSON.stringify) : 'EMPTY';
+let getState = id => database.getState(id);
+let setState = (id, state) => {
+  return database.saveState(id, state)
+    .then(() => state);
+};
 
 let reset = (msg, match) => {
   let id = msg.chat.id;
   if (match[1] !== undefined) id = match[1];
   if (id != msg.chat.id && msg.chat.id != config.adminChatId)
     id = msg.chat.id;
-  setState(id, initState(id));
-  return 'The state has been reset';
+  return database.getState(id)
+    .then(state => {
+      state.selection = database.defaultState(id).selection;
+      return state;
+    })
+    .then(state => database.saveState(id, state))
+    .then(() => 'The state has been reset')
+    .then(message => bot.sendMessage(msg.chat.id, message, {reply_markup: JSON.stringify({keyboard:[['gg']]})}));
 };
 
 let myState = (msg, match) => {
@@ -53,94 +64,162 @@ let myState = (msg, match) => {
   if (match.length > 2) id = match[1];
   if (id != msg.chat.id && msg.chat.id != config.adminChatId)
     id = msg.chat.id;
-  return JSON.stringify(getState(id));
+
+  return getState(id)
+    .then(state => {
+      delete state.options;
+      return JSON.stringify(state);
+    });
 };
 
 let start = msg => {
-  if (!getState(msg.chat.id)) state[msg.chat.id] = initState(msg.chat.id);
+  // if (!getState(msg.chat.id)) state[msg.chat.id] = initState(msg.chat.id);
   return 'Welcome. You can now start using this bot. ';
 };
 
+// ---------------------------------------------
+
 let askForRoute = state => {
-  return bot.sendMessage(state.chatid, 'Please type the route. ');
+  return 'Please enter the route. ';
 };
 
-let parseRoute = (state, input) => {
-  return input.toUpperCase();
-};
+let parseRoute = (state, input) =>
+  new Promise((resolve, reject) => {
+    if (input.search(/^[A-Za-z0-9]+$/) < 0)
+      reject('This is not a valid route number');
+    resolve(input);
+  })
+  .then(route => DataSource.getBoundsInfo(route, false))
+  .then(bounds => new Promise((resolve, reject) => {
+    if (bounds.length == 0) reject('Route not found');
 
-let askForBound = state => {
-  return DataSource.getBoundsInfo(state.route)
-    .then(bounds => {
-      state.boundOptions = bounds.map(bound => ({
+    state.selection.route = input.toUpperCase();
+    state.options.bounds.text = '';
+    state.options.bounds.list = bounds.map(bound => {
+      let ret = {
         bound: bound.bound,
         type: bound.type,
-        text: `${bound.origin[lang]}➡️${bound.destination[lang]}`,
-      }));
-      return bot.sendMessage(state.chatid, 'Please select the direction. ', {
-        reply_markup: JSON.stringify({
-          keyboard: [
-            state.boundOptions
-          ],
-          // one_time_keyboard: true,
-          resize_keyboard: true
-        })
-      });
+        text: `(${bound.bound}.${bound.type})`,
+      };
+
+      if (bound.special) {
+        ret.text += '❗️';
+      } else {
+        ret.text += ' ';
+      }
+      ret.text += `${bound.origin[lang]}➡️${bound.destination[lang]}`;
+
+      state.options.bounds.text += ret.text;
+      if (bound.special) state.options.bounds.text += ` (${bound.typeDetail[lang]})`;
+      state.options.bounds.text += '\n';
+
+      return ret;
     });
+
+    resolve(state);
+  }));
+
+let askForBound = state => {
+  const keyboard = [
+    ...state.options.bounds.list.filter(bound => bound.type == 1).map(bound => [bound.text]),
+    ...util.arrayToGrid(state.options.bounds.list.filter(bound => bound.type != 1).map(bound => bound.text), 3)
+  ];
+  const reply_markup = JSON.stringify({
+    keyboard,
+    // one_time_keyboard: true,
+    resize_keyboard: true
+  });
+
+  return bot.sendMessage(state.chatid, 'Please select the direction. \n' + state.options.bounds.text, {reply_markup});
 };
 
 let parseBound = (state, input) => {
-  if (!isNaN(parseInt(input))) return parseInt(input);
-  for (let i = 0; i < state.boundOptions.length; ++i)
-    if (input === state.boundOptions[i].text)
-      return state.boundOptions[i];
-  return undefined;
+  let selectedBound = undefined;
+  return new Promise((resolve, reject) => {
+    if (!isNaN(parseInt(input))) return parseInt(input);
+
+    for (let i = 0; i < state.options.bounds.list.length; ++i) {
+      if (input === state.options.bounds.list[i].text)
+        resolve(state.options.bounds.list[i]);
+    }
+
+    reject('Unknown bound inputted');
+  })
+  .then(obj => {
+    console.log(selectedBound);
+    selectedBound = obj;
+    return DataSource.getStops(state.selection.route, obj.bound, obj.type);
+  })
+  .then(stops => new Promise((resolve, reject) => {
+    if (stops.length == 0) {
+      reject('Unknown bound selected');
+    }
+
+    state.selection.bound = selectedBound.bound;
+    state.selection.type = selectedBound.type;
+
+    state.options.stops.list = stops.map(stop => ({
+      seq: stop.seq,
+      text: `[${stop.seq}] ${stop.name[lang]}`,
+      location: stop.location,
+      bsiCode: stop.bsiCode
+    }));
+
+    resolve(state);
+  }));
 };
 
 let askForStop = state => {
-  return DataSource.getStops(state.route, state.bound, state.type)
-    .then(stops => {
-      state.stopOptions = stops.map(stop => ({
-        seq: stop.seq,
-        text: stop.name[lang],
-        location: stop.location,
-        bsiCode: stop.bsiCode
-      }));
-      return bot.sendMessage(state.chatid, 'Please select the stop', {
-        reply_markup: JSON.stringify({
-          keyboard: [
-            [
-              {
-                text: 'Find stop by my location',
-                request_location: true
-              }
-            ],
-            ...util.arrayToGrid(state.stopOptions, 3),
-          ],
-          one_time_keyboard: true,
-          resize_keyboard: true,
-          force_reply: false
-        })
-      });
+  let keyboardPreset = [[], []];
+
+  keyboardPreset[0].push({
+    text: 'Find stop by my location',
+    request_location: true
+  });
+
+  if (state.location) {
+    keyboardPreset[1].push({
+      text: 'Use my last location',
+      request_location: true
     });
+  }
+
+  return bot.sendMessage(state.chatid, 'Please select the stop', {
+    reply_markup: JSON.stringify({
+      keyboard: [
+        ...keyboardPreset.filter(row => row.length > 0),
+        ...util.arrayToGrid(state.options.stops.list, 3),
+      ],
+      // one_time_keyboard: true,
+      resize_keyboard: true,
+      force_reply: false
+    })
+  });
 };
 
-let parseStop = (state, input) => {
-  if (!isNaN(parseInt(input))) return parseInt(input);
-  for (let i = 0; i < state.stopOptions.length; ++i)
-    if (input === state.stopOptions[i].text)
-      return state.stopOptions[i];
-  return undefined;
-};
+let parseStop = (state, input) =>
+  new Promise((resolve, reject) => {
+    if (!isNaN(parseInt(input))) return parseInt(input);
+    for (let i = 0; i < state.options.stops.list.length; ++i)
+      if (input === state.options.stops.list[i].text)
+        resolve(state.options.stops.list[i]);
+    reject('Unknown stop inputted');
+  })
+  .then(obj => {
+    state.selection.seq = obj.seq;
+    state.selection.bsiCode = obj.bsiCode;
+    delete state.selection.dist;
+    return state;
+  });
 
 let replyETA = state => {
-  return DataSource.getETA(state.route, state.bound, state.type, state.seq, state.bsiCode)
+  return DataSource.getETA(state.selection.route, state.selection.bound, state.selection.type, state.selection.seq, state.selection.bsiCode)
     .then(data => {
-      let msg = `${state.route} `;
-      msg += state.boundOptions.filter(bound => bound.bound == state.bound && bound.type == state.type)[0].text + '\n';
+      let msg = `${state.selection.route} `;
+      msg += state.options.bounds.list.filter(bound => bound.bound == state.selection.bound && bound.type == state.selection.type)[0].text + '\n';
 
       msg += 'Stop: ';
-      msg += state.stopOptions.filter(stop => stop.seq == state.seq)[0].text;
+      msg += state.options.stops.list.filter(stop => stop.seq == state.selection.seq)[0].text;
 
       if (state.dist) {
         msg += ` (${state.dist} m)`;
@@ -157,16 +236,28 @@ let replyETA = state => {
       } else {
         msg += 'There is no bus in coming hour. ';
       }
-
       return msg;
-    })
-    .then(msg => bot.sendMessage(state.chatid, msg));
+    }).then(msg => bot.sendMessage(state.chatid, msg, {
+      reply_markup: JSON.stringify({
+        keyboard: [
+          [
+            'Refresh', '/reset'
+          ],
+          [
+            'Select another stop'
+          ]
+        ],
+        // one_time_keyboard: true,
+        resize_keyboard: true,
+        force_reply: false
+      })
+    }));
 };
 
-let handleState = state => {
-  switch (state.progress) {
-    // case 0:
-    //   break;
+let reply = state => {
+  switch (state.selection.progress) {
+    case 0:
+      return askForRoute(state);
     case 1:
       return askForBound(state);
     case 2:
@@ -174,7 +265,7 @@ let handleState = state => {
     case 3:
       return replyETA(state);
     default:
-      return bot.sendMessage(state.chatid, JSON.stringify(state));
+      return 'Please proceed your selection. ';
   }
 };
 
@@ -182,60 +273,61 @@ let defaultHandler = msg => {
   let text = msg.text;
   let chatid = msg.chat.id;
 
-  return Promise.resolve(getState(chatid))
-    .then(inState => {
-      let state = Object.assign({}, inState);
-
+  return getState(chatid)
+    .then(state => {
       let tokens = text.split('-');
-      state.progress = Math.min(state.progress, 3 - tokens.length);
+      state.selection.progress = Math.min(state.selection.progress, 3 - tokens.length);
 
-      let obj = undefined;
-
+      let promise = Promise.resolve();
       for (let i = 0; i < tokens.length; ++i) {
-        switch (state.progress) {
+        switch (state.selection.progress) {
           case 0:
-            state.route = parseRoute(state, tokens[i]);
+            promise = promise.then(() => parseRoute(state, tokens[i]));
             break;
           case 1:
-            obj = parseBound(state, tokens[i]);
-            state.bound = obj.bound;
-            state.type = obj.type;
+            promise = promise.then(() => parseBound(state, tokens[i]));
             break;
           case 2:
-            obj = parseStop(state, tokens[i]);
-            state.seq = obj.seq;
-            state.bsiCode = obj.bsiCode;
-            delete state.dist;
+            promise = promise.then(() => parseStop(state, tokens[i]));
             break;
         }
-        state.progress++;
+        promise = promise.then(state => {
+          state.selection.progress++;
+          return state;
+        });
       }
-      setState(chatid, state);
-      return state;
+      return promise
+        .then(() => state);
     })
-    .then(state => handleState(state));
-    // .catch(err => bot.sendMessage(chatid, 'Unaccepted format. ' + JSON.stringify(err)));
+    .then(state => setState(chatid, state))
+    .then(state => reply(state))
+    .catch(err => {
+      console.error(err);
+      if (typeof err === 'string') return err;
+      return 'I cannot understand your meaning!\n' + err.toString();
+    });
 };
 
 let getNearestStop = state => {
-  console.log(state.stopOptions);
-  let dists = state.stopOptions.map(stop => geolib.getDistance(state.location, stop.location));
-  let id = dists.indexOf(Math.min.apply(null, dists));
-  return {seq: id, dist: dists[id]};
+  state.options.stops.list = state.options.stops.list.map(stop => Object.assign(stop, {dist: geolib.getDistance(state.location, stop.location)}));
+  return state.options.stops.list.reduce((min, stop) => min.dist < stop.dist ? min : stop, {dist: 1e99});
 };
 
 let locationHandler = msg => {
-  let state = Object.assign({}, getState(msg.chat.id));
-  state.location = msg.location;
-  if (state.progress == 2) {
-    state.progress = 3;
-    let nearestData = getNearestStop(state);
-    state.seq = state.stopOptions[nearestData.id].seq;
-    state.bsiCode = state.stopOptions[nearestData.id].bsiCode;
-    state.dist = nearestData.dist;
-  }
-  setState(msg.chat.id, state);
-  return handleState(state);
+  return getState(msg.chat.id)
+    .then(state => {
+      state.location = msg.location;
+      if (state.selection.progress == 2) {
+        state.selection.progress = 3;
+        let nearestData = getNearestStop(state);
+        state.selection.seq = nearestData.seq;
+        state.selection.bsiCode = nearestData.bsiCode;
+        state.selection.dist = nearestData.dist;
+      }
+      return state;
+    })
+    .then(state => setState(msg.chat.id, state))
+    .then(reply);
 };
 
 const handleObjects = [
@@ -248,11 +340,6 @@ const handleObjects = [
     name: 'myid',
     handler: myid
   }, {
-    regex: /\/history/,
-    name: 'history',
-    handler: history,
-    condition: msg => msg.chat.id == config.adminChatId
-  }, {
     regex: /\/reset ?(\d+)?/,
     name: 'reset',
     handler: reset
@@ -264,6 +351,12 @@ const handleObjects = [
     name: 'default',
     handler: defaultHandler
   }
+  // }, {
+  //   regex: /\/history/,
+  //   name: 'history',
+  //   handler: history,
+  //   condition: msg => msg.chat.id == config.adminChatId
+
 ];
 
 let locationHandlerObject = {
@@ -287,14 +380,19 @@ bot.on('message', msg => {
     }
   }
 
-  let res = handle.handler ? handle.handler(msg, match) : handle.response;
+  let promise = handle.handler ? handle.handler(msg, match) : handle.response;
+  if (typeof promise === 'string') promise = Promise.resolve(promise);
 
-  if (typeof res === 'string') {
-    recordHistory(handle.name, msg, res);
-    return bot.sendMessage(msg.chat.id, res);
-  } else {
-    return res.catch(console.error);
-  }
+  return promise
+    .then(ret => {
+      if (typeof ret === 'string') {
+        return bot.sendMessage(msg.chat.id, ret);
+      } else {
+        return ret;
+      }
+    })
+    .catch(err => console.error(err));
 });
 
-console.log('Telegram bot started. ');
+database.setupCollections()
+  .then(() => console.log('Telegram bot started. '));

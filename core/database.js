@@ -1,22 +1,13 @@
 const MongoClient = require('mongodb').MongoClient;
 
-const url = 'mongodb://localhost:27017/';
-const dbname = 'kmb';
+const url = process.env.MONGODB_URL || 'mongodb://localhost:27017';
+const dbname = process.env.MONGODB_DBNAME || 'kmb';
 
-let connect = () => MongoClient.connect(url + dbname).catch(() => undefined);
+let connect = () => MongoClient.connect(url + '/' + dbname).catch(() => undefined);
 
 let setupCollectionStops = db => db.collection('stops')
   .createIndex({
     bsiCode: 1
-  }, {
-    unique: true
-  });
-
-let setupCollectionRouteDetail = db => db.collection('route-detail')
-  .createIndex({
-    route: 1,
-    bound: 1,
-    serviceType: 1
   }, {
     unique: true
   });
@@ -38,7 +29,6 @@ let setup = () => {
     })
     .then(() => setupCollectionStops(dbConnection))
     .then(() => setupCollectionRoutes(dbConnection))
-//    .then(() => setupCollectionRouteDetail(dbConnection))
     .catch(console.err)
     .then(() => {
       if (dbConnection)
@@ -52,9 +42,14 @@ let addStop = (db, stop) => db.collection('stops')
 
 let getStop = (db, bsiCode) => db.collection('stops').findOne({bsiCode});
 
+let getAllRoutes = db => db.collection('routes').find({}, {route: 1, bound: 1, type: 1, origin: 1, destination: 1, typeDetail: 1, _id: 0}).toArray();
+let getRoutes = (db, route) => db.collection('routes').find({route}, {_id: 0}).sort({route: 1}).toArray();
+
 module.exports = {
   connect,
   setup,
   addStop,
-  getStop
+  getStop,
+  getAllRoutes,
+  getRoutes
 };
