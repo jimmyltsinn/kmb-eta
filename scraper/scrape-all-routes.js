@@ -27,18 +27,20 @@ function sequentializePromise(promisesFuncs, delay) {
 
 let insertRoute = (info) => {
   let {route, bound, type} = info;
+  let key = {route, bound, type}; 
   let dbConnection = undefined;
   return database.connect()
     .then(db => dbConnection = db)
     .then(() => dbConnection.collection('routes')
-        .updateOne({route, bound, type}, {$set: info}, {upsert: true})
+        .updateOne(key, {$set: info}, {upsert: true})
     )
     .then(() => {
       if (dbConnection) return dbConnection.close().then(() => info);
       return info;
     })
     .catch(err => {
-      console.error('ERROR');
+      console.error('ERROR')
+      console.error(err);
       if (dbConnection)
         return dbConnection.collection('error')
           .updateOne(route, {$set: {
@@ -53,8 +55,8 @@ let insertRoute = (info) => {
 
 function main() {
   // const prefixList = ['B'];
-  const prefixList = ['', 'A', 'B', 'C', 'R', 'E', 'NA'];
-  const numList = Array.from({length: 3}, (v, i) => i).slice(1);
+  const prefixList = ['', 'A', 'B', 'K', 'R', 'E', 'N', 'S', 'T', 'X', 'NA'];
+  const numList = Array.from({length: 100}, (v, i) => i + 600).slice(0);
   // const numList = [49]
   const suffixList = ['', ...'ABCDEFGHJKLMNPQRSTUVWXYZ'.split('')];
   // const suffixList = ['', ...'ABCDX'.split('')];
@@ -62,14 +64,16 @@ function main() {
   let routeList = numList.map(num => prefixList.map(prefix => suffixList.map(suffix => prefix + num + suffix)));
   routeList = [].concat(...[].concat(...routeList));
   util.shuffle(routeList);
+  // routeList = ['107']
   // routeList = ['B1'];
   console.log(routeList);
 
   return sequentializePromise(
-    routeList.map(route => () =>
-      datasource.getBoundsInfo(route)
-      .then(infos => infos.map(insertRoute)))
-  )
+    routeList.map(route => () => {
+      return datasource.getBoundsInfo(route)
+      .then(infos => sequentializePromise(infos.map(info => () => insertRoute(info))))
+    }
+  ))
     .then(bounds => bounds.reduce((acc, arr) => acc.concat(arr), []));
     // .then(bounds => bounds.reduce((promise, bound) => promise.then(() => scrapeRoute(bound.route, bound.bound, bound.type).catch(() => undefined).then(() => delayPromise())), Promise.resolve()));
 }

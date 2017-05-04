@@ -74,7 +74,7 @@ let askForBound = state => {
     .then(bounds => {
       state.boundOptions = bounds.map(bound => ({
         bound: bound.bound,
-        serviceType: bound.serviceType,
+        type: bound.type,
         text: `${bound.origin[lang]}➡️${bound.destination[lang]}`,
       }));
       return bot.sendMessage(state.chatid, 'Please select the direction. ', {
@@ -98,7 +98,7 @@ let parseBound = (state, input) => {
 };
 
 let askForStop = state => {
-  return DataSource.getStops(state.route, state.bound, state.serviceType)
+  return DataSource.getStops(state.route, state.bound, state.type)
     .then(stops => {
       state.stopOptions = stops.map(stop => ({
         seq: stop.seq,
@@ -134,10 +134,10 @@ let parseStop = (state, input) => {
 };
 
 let replyETA = state => {
-  return DataSource.getETA(state.route, state.bound, state.serviceType, state.seq, state.bsiCode)
+  return DataSource.getETA(state.route, state.bound, state.type, state.seq, state.bsiCode)
     .then(data => {
       let msg = `${state.route} `;
-      msg += state.boundOptions.filter(bound => bound.bound == state.bound && bound.serviceType == state.serviceType)[0].text + '\n';
+      msg += state.boundOptions.filter(bound => bound.bound == state.bound && bound.type == state.type)[0].text + '\n';
 
       msg += 'Stop: ';
       msg += state.stopOptions.filter(stop => stop.seq == state.seq)[0].text;
@@ -199,7 +199,7 @@ let defaultHandler = msg => {
           case 1:
             obj = parseBound(state, tokens[i]);
             state.bound = obj.bound;
-            state.serviceType = obj.serviceType;
+            state.type = obj.type;
             break;
           case 2:
             obj = parseStop(state, tokens[i]);
@@ -221,7 +221,7 @@ let getNearestStop = state => {
   console.log(state.stopOptions);
   let dists = state.stopOptions.map(stop => geolib.getDistance(state.location, stop.location));
   let id = dists.indexOf(Math.min.apply(null, dists));
-  return {id: id, dist: dists[id]};
+  return {seq: id, dist: dists[id]};
 };
 
 let locationHandler = msg => {
