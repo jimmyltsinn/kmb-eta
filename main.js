@@ -9,6 +9,15 @@ const serviceType = 1;
 const bsiCode = 'CA07-S-5100-0';
 const seq = 7;
 
+let db = undefined;
+database.connect()
+  .then(dbConnection => db = dbConnection)
+  .then(() => database.getAllRoutes(db))
+  .then(arr => {
+    if (db) db.close();
+    return arr;
+  })
+
 // database.setup()
 // scrape.scrapeAllStops()
 // scrape.scrapeRoute(route, bound)
@@ -26,6 +35,9 @@ const seq = 7;
 // datasource.getBoundsInfo(route)
 // datasource.getAnnounce(route, bound)
 // datasource.getAllStops()
-datasource.getETA(route, bound, serviceType, seq, bsiCode)
+// datasource.getETA(route, bound, serviceType, seq, bsiCode)
+
+
+
   .then(obj => console.log(obj))
   .catch(console.error);

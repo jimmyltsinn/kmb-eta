@@ -2,7 +2,7 @@ let datasource = require('../core/datasource');
 let database = require('../core/database');
 let util = require('../core/util');
 
-let scrapeRoute = require('./scrape-route');
+// let scrapeRoute = require('./scrape-route');
 
 function delayPromise(delay = 1) {
   return new Promise(resolve => {
@@ -27,7 +27,7 @@ function sequentializePromise(promisesFuncs, delay) {
 
 let insertRoute = (info) => {
   let {route, bound, type} = info;
-  let key = {route, bound, type}; 
+  let key = {route, bound, type};
   let dbConnection = undefined;
   return database.connect()
     .then(db => dbConnection = db)
@@ -39,7 +39,7 @@ let insertRoute = (info) => {
       return info;
     })
     .catch(err => {
-      console.error('ERROR')
+      console.error('ERROR');
       console.error(err);
       if (dbConnection)
         return dbConnection.collection('error')
@@ -51,7 +51,7 @@ let insertRoute = (info) => {
           .then(() => dbConnection.close());
       return undefined;
     });
-}
+};
 
 function main() {
   // const prefixList = ['B'];
@@ -71,7 +71,7 @@ function main() {
   return sequentializePromise(
     routeList.map(route => () => {
       return datasource.getBoundsInfo(route)
-      .then(infos => sequentializePromise(infos.map(info => () => insertRoute(info))))
+      .then(infos => sequentializePromise(infos.map(info => () => insertRoute(info))));
     }
   ))
     .then(bounds => bounds.reduce((acc, arr) => acc.concat(arr), []));

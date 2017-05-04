@@ -1,7 +1,7 @@
-version: '3'
+version: '2'
 
 services:
-  db:
+  mongodb:
     image: mongo
     volumes:
       - ./data:/data/db
@@ -10,9 +10,24 @@ services:
   db-admin:
     image: mongo-express
     links:
-      - db:mongo
+      - mongodb:mongo
     ports:
       - 8081:8081
+  server:
+    image: node
+    volumes:
+      - ./:/app
+    working_dir: /app
+    links:
+      - mongodb
+    environment:
+      - PORT=3000
+      - PATH=$PATH:node_modules/.bin
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DBNAME=kmb
+    ports:
+      - 3000:3000
+    command: gulp server
 #   telegram-bot:
 #     image: node
 #     volumes:

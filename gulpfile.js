@@ -43,7 +43,16 @@ gulp.task('telegram-bot', () => {
   nodemon({
     script: 'bot/telegram.js',
     ext: 'js',
-    ignore: ['node_modules', 'web'], 
+    ignore: ['node_modules', 'web'],
+    env: { 'NODE_ENV': 'development' }
+  });
+});
+
+gulp.task('server', () => {
+  nodemon({
+    script: 'server/app.js',
+    ext: 'js',
+    ignore: ['node_modules', 'web'],
     env: { 'NODE_ENV': 'development' }
   });
 });

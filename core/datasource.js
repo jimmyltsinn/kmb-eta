@@ -237,14 +237,13 @@ function getStops(route, bound, serviceType = 1) {
 function etaPostBody(route, bound, serviceType, seq, bsiCode) {
   const date = new Date();
 
-  let separator = '--31'; 
-  
-  let t = date.getUTCFullYear() + '-' + ('00' + (date.getUTCMonth() + 1)).slice(-2) + '-' + ('00' + date.getUTCDate()).slice(-2) + ' ' + ('00' + date.getUTCHours()).slice(-2) + ':' + ('00' + date.getUTCMinutes()).slice(-2) + ':' + ('00' + date.getUTCSeconds()).slice(-2) + '.' + ('00' + date.getUTCMilliseconds()).slice(-2) + '.'; 
-  separator += t; 
+  let separator = '--31';
+
+  let t = date.getUTCFullYear() + '-' + ('00' + (date.getUTCMonth() + 1)).slice(-2) + '-' + ('00' + date.getUTCDate()).slice(-2) + ' ' + ('00' + date.getUTCHours()).slice(-2) + ':' + ('00' + date.getUTCMinutes()).slice(-2) + ':' + ('00' + date.getUTCSeconds()).slice(-2) + '.' + ('00' + date.getUTCMilliseconds()).slice(-2) + '.';
+  separator += t;
   separator += 	'13--';
 
   const buf = new Buffer(route.toUpperCase().trim() + separator + bound + separator + serviceType + separator + bsiCode.replace(/-/gi, '') + separator + seq + separator + (new Date()).getTime());
-console.log(buf.toString());
   const obj = {
     token: 'EA' + buf.toString('base64'),
     t
