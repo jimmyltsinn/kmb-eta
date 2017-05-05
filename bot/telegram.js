@@ -102,7 +102,13 @@ let parseRoute = (state, input) =>
         text: `(${bound.bound}.${bound.type})`,
       };
 
-      if (bound.special) {
+      if (bound.airport) {
+        ret.text += '✈️';
+      } else if (bound.racecourse) {
+        ret.text += '🐎';
+      } else if (bound.overnight) {
+        ret.text += '🌙';
+      } else if (bound.typeDetail) {
         ret.text += '❗️';
       } else {
         ret.text += ' ';
@@ -110,7 +116,7 @@ let parseRoute = (state, input) =>
       ret.text += `${bound.origin[lang]}➡️${bound.destination[lang]}`;
 
       state.options.bounds.text += ret.text;
-      if (bound.special) state.options.bounds.text += ` (${bound.typeDetail[lang]})`;
+      if (bound.typeDetail && bound.typeDetail[lang] && bound.typeDetail[lang] !== '') state.options.bounds.text += ` (${bound.typeDetail[lang]})`;
       state.options.bounds.text += '\n';
 
       return ret;
