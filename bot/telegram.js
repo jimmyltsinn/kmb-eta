@@ -13,6 +13,17 @@ const bot = new TelegramBot(config.token, {polling: true});
 
 const lang = 'chi';
 
+const command = {
+  reset: {
+    text: '/reset',
+    regex: /\/reset ?(\d+)?/
+  },
+  refresh: {
+    text: '/refresh',
+    regex: /\/refresh/
+  }
+};
+
 // let recordHistory = (handleName, msg, res = '') => {
 //   let ret = {
 //     time: new Date().getTime(),
@@ -70,6 +81,11 @@ let myState = (msg, match) => {
       delete state.options;
       return JSON.stringify(state);
     });
+};
+
+let refresh = (msg) => {
+  return database.getState(msg.chat.id)
+    .then(state => reply(state));
 };
 
 let start = msg => {
@@ -247,11 +263,11 @@ let replyETA = state => {
       reply_markup: JSON.stringify({
         keyboard: [
           [
-            'Refresh', '/reset'
-          ],
-          [
-            'Select another stop'
+            command.refresh.text, command.reset.text
           ]
+          // [
+          //   'Select another stop'
+          // ]
         ],
         // one_time_keyboard: true,
         resize_keyboard: true,
@@ -346,9 +362,13 @@ const handleObjects = [
     name: 'myid',
     handler: myid
   }, {
-    regex: /\/reset ?(\d+)?/,
+    regex: command.reset.regex,
     name: 'reset',
     handler: reset
+  }, {
+    regex: command.refresh.regex,
+    name: 'reset',
+    handler: refresh
   }, {
     regex: /\/state ?(\d+)?/,
     name: 'state',
