@@ -13,6 +13,20 @@ const bot = new TelegramBot(config.token, {polling: true});
 
 const lang = 'chi';
 
+const command = {
+  reset: {
+    text: '/reset',
+    regex: /\/reset ?(\d+)?/
+  },
+  refresh: {
+    text: '/refresh',
+    regex: /\/refresh/
+  },
+  lastLocation: {
+    text: 'Use my last location'
+  }
+};
+
 // let recordHistory = (handleName, msg, res = '') => {
 //   let ret = {
 //     time: new Date().getTime(),
@@ -49,14 +63,22 @@ let reset = (msg, match) => {
   if (match[1] !== undefined) id = match[1];
   if (id != msg.chat.id && msg.chat.id != config.adminChatId)
     id = msg.chat.id;
+
+  let myState;
+
   return database.getState(id)
     .then(state => {
       state.selection = database.defaultState(id).selection;
+      myState = state;
       return state;
     })
     .then(state => database.saveState(id, state))
-    .then(() => 'The state has been reset')
-    .then(message => bot.sendMessage(msg.chat.id, message, {reply_markup: JSON.stringify({keyboard:[['gg']]})}));
+    .then(() => myState)
+    .then(state => bot.sendMessage(msg.chat.id, 'The state has been reset', {
+      reply_markup: JSON.stringify({
+        keyboard: state.history === undefined ? [['You have not history yet. ']] : util.arrayToGrid(state.history, 3),
+        resize_keyboard: true,
+      })}));
 };
 
 let myState = (msg, match) => {
@@ -70,6 +92,11 @@ let myState = (msg, match) => {
       delete state.options;
       return JSON.stringify(state);
     });
+};
+
+let refresh = (msg) => {
+  return database.getState(msg.chat.id)
+    .then(state => reply(state));
 };
 
 let start = msg => {
@@ -122,13 +149,18 @@ let parseRoute = (state, input) =>
       return ret;
     });
 
+    if (state.history === undefined)
+      state.history = [];
+    state.history = [state.selection.route].concat(state.history.filter(route => route != state.selection.route));
+
     resolve(state);
   }));
 
 let askForBound = state => {
   const keyboard = [
     ...state.options.bounds.list.filter(bound => bound.type == 1).map(bound => [bound.text]),
-    ...util.arrayToGrid(state.options.bounds.list.filter(bound => bound.type != 1).map(bound => bound.text), 3)
+    ...util.arrayToGrid(state.options.bounds.list.filter(bound => bound.type != 1).map(bound => bound.text), 3),
+    ...[[command.reset.text]]
   ];
   const reply_markup = JSON.stringify({
     keyboard,
@@ -152,7 +184,6 @@ let parseBound = (state, input) => {
     reject('Unknown bound inputted');
   })
   .then(obj => {
-    console.log(selectedBound);
     selectedBound = obj;
     return DataSource.getStops(state.selection.route, obj.bound, obj.type);
   })
@@ -183,10 +214,10 @@ let askForStop = state => {
     request_location: true
   });
 
-  if (state.location) {
+  if (state.location !== undefined) {
     keyboardPreset[1].push({
-      text: 'Use my last location',
-      request_location: true
+      text: command.lastLocation.text,
+      // request_location: true
     });
   }
 
@@ -195,6 +226,7 @@ let askForStop = state => {
       keyboard: [
         ...keyboardPreset.filter(row => row.length > 0),
         ...util.arrayToGrid(state.options.stops.list, 3),
+        ...[[command.reset.text]]
       ],
       // one_time_keyboard: true,
       resize_keyboard: true,
@@ -205,18 +237,37 @@ let askForStop = state => {
 
 let parseStop = (state, input) =>
   new Promise((resolve, reject) => {
+    let stop = undefined;
+
     if (!isNaN(parseInt(input))) return parseInt(input);
+    if (input === command.lastLocation.text)
+      return resolve(parseStopByLocation(state));
     for (let i = 0; i < state.options.stops.list.length; ++i)
       if (input === state.options.stops.list[i].text)
-        resolve(state.options.stops.list[i]);
-    reject('Unknown stop inputted');
-  })
-  .then(obj => {
-    state.selection.seq = obj.seq;
-    state.selection.bsiCode = obj.bsiCode;
+        stop = state.options.stops.list[i];
+
+    if (stop === undefined)
+      reject('Unknown stop inputted');
+
+    state.selection.seq = stop.seq;
+    state.selection.bsiCode = stop.bsiCode;
     delete state.selection.dist;
-    return state;
+    resolve(state);
   });
+
+let getNearestStop = state => {
+  state.options.stops.list = state.options.stops.list.map(stop => Object.assign(stop, {dist: geolib.getDistance(state.location, stop.location)}));
+  return state.options.stops.list.reduce((min, stop) => min.dist <= stop.dist ? min : stop, {dist: 1e99});
+};
+
+let parseStopByLocation = state => {
+  let nearestData = getNearestStop(state);
+  state.selection.seq = nearestData.seq;
+  state.selection.bsiCode = nearestData.bsiCode;
+  state.selection.dist = nearestData.dist;
+  return state;
+};
+
 
 let replyETA = state => {
   return DataSource.getETA(state.selection.route, state.selection.bound, state.selection.type, state.selection.seq, state.selection.bsiCode)
@@ -247,11 +298,11 @@ let replyETA = state => {
       reply_markup: JSON.stringify({
         keyboard: [
           [
-            'Refresh', '/reset'
-          ],
-          [
-            'Select another stop'
+            command.refresh.text, command.reset.text
           ]
+          // [
+          //   'Select another stop'
+          // ]
         ],
         // one_time_keyboard: true,
         resize_keyboard: true,
@@ -314,25 +365,18 @@ let defaultHandler = msg => {
     });
 };
 
-let getNearestStop = state => {
-  state.options.stops.list = state.options.stops.list.map(stop => Object.assign(stop, {dist: geolib.getDistance(state.location, stop.location)}));
-  return state.options.stops.list.reduce((min, stop) => min.dist < stop.dist ? min : stop, {dist: 1e99});
-};
-
 let locationHandler = msg => {
   return getState(msg.chat.id)
     .then(state => {
-      state.location = msg.location;
+      if (msg !== undefined && msg.location !== undefined)
+        state.location = msg.location;
       if (state.selection.progress == 2) {
         state.selection.progress = 3;
-        let nearestData = getNearestStop(state);
-        state.selection.seq = nearestData.seq;
-        state.selection.bsiCode = nearestData.bsiCode;
-        state.selection.dist = nearestData.dist;
+        state = parseStopByLocation(state);
       }
       return state;
     })
-    .then(state => setState(msg.chat.id, state))
+    .then(state => setState(state.chatid, state))
     .then(reply);
 };
 
@@ -346,9 +390,13 @@ const handleObjects = [
     name: 'myid',
     handler: myid
   }, {
-    regex: /\/reset ?(\d+)?/,
+    regex: command.reset.regex,
     name: 'reset',
     handler: reset
+  }, {
+    regex: command.refresh.regex,
+    name: 'reset',
+    handler: refresh
   }, {
     regex: /\/state ?(\d+)?/,
     name: 'state',
